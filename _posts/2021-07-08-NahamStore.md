@@ -116,7 +116,7 @@ product_id=2&server=stock.nahamstore.thm
 We can see it has paramter `server`, it is likely there is a SSRF vulnerable in here. We will come back here later
 ### /basket
 Here is where we proceed our goods.
-![alt text](/assets/img/tryhackme/nahamStore/basket.png)
+![alt text](/assets/img/tryhackme/nahamStore/basket.PNG)
 There is nothing here now. Let try `Add Another Address` button and we get this request when we press
 ```
 GET /account/addressbook?redirect_url=/basket HTTP/1.1
@@ -125,7 +125,7 @@ Host: nahamstore.thm
 ```
 This recieve a parameter `redirect_url`. We find out 1 parameter use to redirect. Let note it down cause it might be usefull for our SSRF attack  
 Then I try to create new address book on the redirect link and then go back to the basket. Now we can see it has our created address book
-![alt text](/assets/img/tryhackme/nahamStore/basket_address.png)
+![alt text](/assets/img/tryhackme/nahamStore/basket_address.PNG)
 Let click on it and intercept it. We recieve this request
 ```
 POST /basket HTTP/1.1
@@ -134,12 +134,12 @@ Host: nahamstore.thm
 address_id=5
 ```
 There is a paramter `address_id` with the id of our address book. I courious what will happen if we change to other id. Let change to `addredss_id=1` and voila...  
-![alt text](/assets/img/tryhackme/nahamStore/basket_idor.png)
+![alt text](/assets/img/tryhackme/nahamStore/basket_idor.PNG)
 This is the `IDOR` exploit, which the website pass direct the input of user without any filter. This allow us to change to parameter to see other user data. Take a note on this and continue.  
 I try the card number that is in the placeholder, which is `1234123412341234` and our payment complete
 ### /account/orders
 After finish payment, there is an order in our order tab. We can see our order at with the format `account/orders/<id>`. 
-![alt text](/assets/img/tryhackme/nahamStore/order.png)
+![alt text](/assets/img/tryhackme/nahamStore/order.PNG)
 I try to change to other order ID but redirect us back to the `/account/orders`. But there is a loophole when we click on `pdf reciept`, we got this request:
 ```
 POST /pdf-generator HTTP/1.1
@@ -148,4 +148,4 @@ Host: nahamstore.thm
 what=order&id=4
 ```
 I try to change the id to other id but sadly there is a filter mechanism on this too
-![alt text](/assets/img/tryhackme/nahamStore/block_order.png)
+![alt text](/assets/img/tryhackme/nahamStore/block_order.PNG)
