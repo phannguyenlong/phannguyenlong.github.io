@@ -100,7 +100,12 @@ Here we can see it has parameter `id` so let try some SQLi
 http://nahamstore.thm/product?id='
 You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' LIMIT 1' at line 1
 ```
-So it is vulnerable to SQLi, take a note about it
+So it is vulnerable to SQLi, take a note about it  
+One more interesting thing find here, inside the network tab
+![alt text](/assets/img/tryhackme/nahamStore/network_tab.PNG)
+There is a paramter `file=` for the API `/product/picture`. Let send it to `Burp Repeter`. I will try simple LFI `../../../../../../etc/passwd`
+![alt text](/assets/img/tryhackme/nahamStore/lfi_block.PNG)
+It look like there is a filter here. So let come back later
 ### /checkstock
 It is the API when you press on `check stock` button, you can use Burp Suite to intercept the request to see this:
 ```
@@ -123,7 +128,7 @@ GET /account/addressbook?redirect_url=/basket HTTP/1.1
 Host: nahamstore.thm
 ...
 ```
-This recieve a parameter `redirect_url`. We find out 1 parameter use to redirect. Let note it down cause it might be usefull for our SSRF attack  
+This recieve a parameter `redirect_url`. We find out 1 parameter use to redirect. Let note it down cause it might be usefull for our `SSRF` attack  
 Then I try to create new address book on the redirect link and then go back to the basket. Now we can see it has our created address book
 ![alt text](/assets/img/tryhackme/nahamStore/basket_address.PNG)
 Let click on it and intercept it. We recieve this request
@@ -149,3 +154,57 @@ what=order&id=4
 ```
 I try to change the id to other id but sadly there is a filter mechanism on this too
 ![alt text](/assets/img/tryhackme/nahamStore/block_order.PNG)
+But let's think a little bit, how can it filter. Could there be any `Command Injection` here. We will comeback it later
+### /returns
+This is a place where we can returns order. It only accept the valid orders id. So let try our previous order id is 4.
+```
+POST /returns HTTP/1.1
+Host: nahamstore.thm
+...
+Upgrade-Insecure-Requests: 1
+-----------------------------270893715428640862821998092503
+Content-Disposition: form-data; name="order_number"
+4
+-----------------------------270893715428640862821998092503
+
+Content-Disposition: form-data; name="return_reason"
+3
+-----------------------------270893715428640862821998092503
+
+Content-Disposition: form-data; name="return_info"
+asdfasdf
+-----------------------------270893715428640862821998092503--
+```
+So there is 3 paramter, but we focus on the orderID beacause it can check whether it is a valid orderID or not. So that it has to query to database to check.  Base on that I try some SQLi here:
+- `oder_numer = 4 'or 1=1`: I try this number => our request fail. So there maybe some filter here 
+- `oder_numer = 4 && 1 `: our request successfull
+So base on that we can conclude it is `Blind SQLi`. We will take further exploit with `sqlmap` in second part
+### /staff
+This is the hidden directory we can find out.
+ ![alt text](/assets/img/tryhackme/nahamStore/staff.PNG)
+It is where the staff can upload the Excel file. But we allow to upload to => `Broken Access control`. Notice that `.xlsx` is also a XML format, this can be vulnerable to `XXE file upload attack`  
+
+I think we have check most of all feature of this domain. Let try another
+## stock.nahamstore.thm
+It only a API server to get information about the product. I try to use `wfuzz` for different API endpoint with wordlist `api_object.txt` of seclist:
+```
+wfuzz --hw 5 -u http://stock.nahamstore.thm/FUZZ -w /usr/share/wordlists/seclist/api_object.txt
+```
+But there is no hope here. But let try another way, instead of `/FUZZ` we change to parameter style `?FUZZ`
+```
+wfuzz --hw 1 -u http://stock.nahamstore.thm?FUZZ -w /usr/share/wordlists/seclist/api_object.txt
+...
+000003115:   200        2 L      3 W        130 Ch      "xml"  
+```
+And finnaly we got the paramter is xml. Let try that:
+ ![alt text](/assets/img/tryhackme/nahamStore/stock_xml.PNG)
+ It likely this is another `XXE` attack. Let note this down and move on the next subdomain
+ ## marketing.nahamstore.thm
+ There is nothing here except a page where can register email and name, but there is nothing happen after that. So move on  
+ At this point, we have done for port 80, so move to port 8000
+ ## Port 8000
+ The result from nmap has show us there is a path `/admin` here. I try to login with defaul credential `admin:admin` and success go inside
+  ![alt text](/assets/img/tryhackme/nahamStore/admin.PNG)
+  It is the edit page for the subdomain `marketing.nahamstore.thm`, we can modify the page here. At this point, possible path is we can add some php code to open a reverse shell to our computer
+
+
