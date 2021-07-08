@@ -204,8 +204,8 @@ And finnaly we got the paramter is xml. Let try that:
  There is nothing here except a page where can register email and name, but there is nothing happen after that. So move on  
  At this point, we have done for port 80, so move to port 8000  
  
- ## Port 8000
- 
+## Port 8000
+
  The result from nmap has show us there is a path `/admin` here. I try to login with defaul credential `admin:admin` and success go inside
   ![alt text](/assets/img/tryhackme/nahamStore/admin.PNG)
   It is the edit page for the subdomain `marketing.nahamstore.thm`, we can modify the page here. At this point, possible path is we can add some php code to open a reverse shell to our computer.  
