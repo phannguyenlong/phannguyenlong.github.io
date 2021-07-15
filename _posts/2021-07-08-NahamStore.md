@@ -235,9 +235,12 @@ ID           Response   Lines    Word       Chars       Payload
 ```
 
 You can see that only the `error` paramter behavior diffrently. Lets test it out:  
- ![alt text](/assets/img/tryhackme/nahamStore/xss1.PNG)
+
+ ![alt text](/assets/img/tryhackme/nahamStore/xss1.PNG)  
+ 
 We can see it can change content of the error message so it can be `Reflected XSS`. Inspect the HTML we can see that our input is place inside `img` tag. Let add the payload `<img src=1 onerror=alert(1) />` try get an alert  
- ![alt text](/assets/img/tryhackme/nahamStore/xss1_alert.PNG)
+
+ ![alt text](/assets/img/tryhackme/nahamStore/xss1_alert.PNG)  
  So that is the answer for 1st question  
  
 ### What HTTP header can be used to create a Stored XXS?
