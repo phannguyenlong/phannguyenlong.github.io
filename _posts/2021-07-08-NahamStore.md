@@ -221,7 +221,96 @@ curl 'http://nahamstore-2020-dev.nahamstore.thm/api/customers/?customer_id=2'
 ```
 
 ## [Task 4]  XSS
-Processing
+I am not discussing XSS in the enumeration phase but let start it now  
+
+### Enter an URL ( including parameters ) of an endpoint that is vulnerable to XSS?
+Base number of character of the placeholder in the answer, we can guess it happen in the domain `marketing.nahamastore.thm`. But the page don't reveal any other paramter. Let's fuzzing it *(I will use the wordlist `api_object` of seclist)*
+```
+ wfuzz --hw 92 -u http://marketing.nahamstore.thm/?FUZZ= -w /usr/share/wordlists/seclist/api_object.txt
+ =====================================================================
+ID           Response   Lines    Word       Chars       Payload                                                                                                                                 
+=====================================================================
+
+000000641:   200        44 L     102 W      2168 Ch     "error"    
+```
+
+You can see that only the `error` paramter behavior diffrently. Lets test it out:  
+ ![alt text](/assets/img/tryhackme/nahamStore/xss1.PNG)
+We can see it can change content of the error message so it can be `Reflected XSS`. Inspect the HTML we can see that our input is place inside `img` tag. Let add the payload `<img src=1 onerror=alert(1) />` try get an alert  
+ ![alt text](/assets/img/tryhackme/nahamStore/xss1_alert.PNG)
+ So that is the answer for 1st question  
+ 
+### What HTTP header can be used to create a Stored XXS?
+
+ This can be found when you make payment for your order. In your order detail, you will see there is a field called `User Agent`, i guess that it will get our `User Agent header` when we make payment to store. So that it is simple `Stored XSS`. To exploit it, let's make another payment. But before you click on make payment, turn on the intercept on Burp Suite and then the User Agent of the request to:  
+ ```
+ User-Agent: <script>alert(1)</script>
+ ```
+ And watch the result:
+  ![alt text](/assets/img/tryhackme/nahamStore/xss2.PNG)  
+  
+### What HTML tag needs to be escaped on the product page to get the XSS to work?
+
+Go to the homepage click on the image of any product, you will see another paramter called `name`. We can change it and it also change the name of our tag. So there input value must be place inside the `title` tag like this  
+```
+<title>NahamStore - your_input_here</title>
+```
+So this is the `Reflected XSS` Error
+
+### What JavaScript variable needs to be escaped to get the XSS to work?
+
+Make search for `aaaa` on the homepage `/search?q=aaaa` then click on viewsource you will see a script like this:  
+```
+var search = 'aaaa';
+```
+So to exploit this you just need to input `a'; alert(1)//`. This will make the script change to:  
+```
+var search = 'a'; alert(1)//;
+```
+
+### What hidden parameter can be found on the shop home page that introduces an XSS vulnerability.
+
+Go to the homepage and click on view source. You will see there is html element like this:  
+```
+<input class="form-control" name="q" placeholder="Search For Products" value="">
+```
+Let try to query on the homepage with parameter `?q=aa`. We can see that it chanege the element like this:  
+```
+<input class="form-control" name="q" placeholder="Search For Products" value="aaa">
+```
+So this a `Reflected XSS` inside the HTML attribute. To exploit just change the input to `/?q=" autofocus onfocus="alert(1)`. This will cause the broswer to make an alert
+
+### What HTML tag needs to be escaped on the returns page to get the XSS to work?
+
+Let's try to make a return and then inspect the HTML. We can see that this is source of our return:  
+```html
+<div class="panel-body">
+  <div><label>Status: </label>Awaiting Decision</div>
+  <div style="margin-top:7px"><label>Order Number: </label>4</div>
+  <div style="margin-top:7px"><label>Return Reason: </label>Wrong Size</div>
+  <div style="margin-top:7px"><label>Return Information:</label></div>
+  <div><textarea class="form-control">adsf</textarea></div>
+</div>
+```
+We can't change the order number cause it require a valid orde number. So the only field we change is `textarea`. Go back and make another return with the `Return Information` is `<script>alert(1)</script>`  
+You will see an alert and this is a `Reflected XSS` error  
+
+### What is the value of the H1 tag of the page that uses the requested URL to create an XSS?
+
+The only use the url to get inut is search function on the homepage. It will dislay the text in `h1` is `Page Not Found`
+
+### What other hidden parameter can be found on the shop which can introduce an XSS vulnerability?
+
+Access to any product on the homepage and view source. You will see HTML element look like this:  
+```
+<div style="margin-bottom:10px"><input placeholder="Discount Code" class="form-control" name="discount" value=""></div>
+```
+You can see the name is `discount`. Let try to use the param `discount` on that page with request `/product?id=2&discount=aaa`. Notice the value of the discount filed has change to `aaa`:  
+```
+<input placeholder="Discount Code" class="form-control" name="discount" value="aaa">
+```  
+So there is a `Refleced XSS` here. Change the input to `/product?id=2&discount=" autofocus onfocus="alert(1)` and you will see an alert
+
 
 ## [Task 5] Open redirect
 
