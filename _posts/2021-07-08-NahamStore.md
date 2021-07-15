@@ -328,7 +328,27 @@ http://nahamstore.thm?x=basket
 It is the paratmeter we find in our enumeration phase `rexxxxxxxrl`
 
 ## [Task 6] CSRF
-processing
+I have not dicuss this on the Enumeration part. But lets start it now.  
+The condition for CSRF to be happen is that it require the CSRF attack make an action for the victim. So the possible place is in the `/account/settings` page where use can change the email and password
+
+### What URL has no CSRF protection?
+
+Inspect the html source of 2 page `/account/settings/email` and `/account/settings/password`, we can see that only the `email` has this element:  
+```
+<input type="hidden" name="csrf_protect" value="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+```  
+So we can conclude that only `/account/settings/email` is protected from CSRF while `/account/settings/password` is not.
+
+### What field can be removed to defeat the CSRF protection?
+
+The only path that has CSRF protect is `/account/settings/email`. So let change email and intercept the request.  
+![alt text](/assets/img/tryhackme/nahamStore/csrf.PNG)  
+ 
+We can see the parameter `csrf_protect` that is you for CSRF protect. The simplest bypass CSRF attack is to remove the parameter that is use for CSRF attack :). Let's intercept the request again and then remove it. The result is amazed that we successfully change our email. So that is the correct way to bypass
+
+### What simple encoding is used to try and CSRF protect a form?
+
+You can access to `/account/settings/email` and view the HTML source. It easily to see the CSRF has the `base64` form.
 
 ## [Task 7] IDOR
 We found 2 IDOR exploit when we enumerate `basket` and  `pdf reciept` feature
